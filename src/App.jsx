@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
-// The tournament logo is stored in the public directory.  Use the base URL
-// so that the asset resolves correctly on GitHub Pages where the site
-// is deployed under a sub-path.  See vite.config.js for the base path.
+// Import the tournament logo from the source folder.  Vite will copy this asset
+// into the build and provide a hashed URL for it.  Using the imported
+// variable ensures the compiled code references the correct file.
+import logo from './logo.jpeg'
 
 
 /*
@@ -131,6 +132,10 @@ function reorder(list, fromIndex, toIndex) {
 }
 
 export default function App() {
+  // State controlling which algorithm is used to split the ranking into two groups.
+  // "had" applies the snake algorithm (pairs alternate A/B,B/A), while "prumer"
+  // assigns the first half of players to group A and the remainder to group B.
+  const [seedingAlgo, setSeedingAlgo] = useState('had')
   // Ranking state: an ordered list of participants.  Reordering this list via
   // drag and drop changes each participant's rank value (index + 1).
   const [ranking, setRanking] = useState(() => {
@@ -138,12 +143,61 @@ export default function App() {
     return sorted.map((p, i) => ({ ...p, rank: i + 1 }))
   })
 
-  // Groups are derived from the ranking.  The first 7 players go to group A,
-  // the remainder to group B.  Each group entry includes updated rank.
-  const groupACount = 7
+  // Helper to split the ranking into two groups using a "snake" seeding algorithm.
+  // Players are paired, and the first pair is assigned A/B, the next pair B/A, etc.
+  // This balances the average strength of each group.  Each entry includes
+  // an updated rank equal to its index+1 in the ranking.
+  const splitSnake = (list) => {
+    const A = []
+    const B = []
+    list.forEach((p, idx) => {
+      const pair = Math.floor(idx / 2)
+      const evenPair = pair % 2 === 0
+      if (evenPair) {
+        if (idx % 2 === 0) {
+          A.push({ ...p, rank: idx + 1 })
+        } else {
+          B.push({ ...p, rank: idx + 1 })
+        }
+      } else {
+        if (idx % 2 === 0) {
+          B.push({ ...p, rank: idx + 1 })
+        } else {
+          A.push({ ...p, rank: idx + 1 })
+        }
+      }
+    })
+    return { A, B }
+  }
+
+  // Split players into groups using the selected algorithm.  When "had" is
+  // chosen we call splitSnake; otherwise we place the first half of players
+  // into group A and the remainder into group B.  Ranks are updated to match
+  // the current order.
+  const splitGroups = (list, algo) => {
+    if (algo === 'had') {
+      return splitSnake(list)
+    } else {
+      const half = Math.ceil(list.length / 2)
+      const A = []
+      const B = []
+      list.forEach((p, idx) => {
+        const newRank = idx + 1
+        if (idx < half) {
+          A.push({ ...p, rank: newRank })
+        } else {
+          B.push({ ...p, rank: newRank })
+        }
+      })
+      return { A, B }
+    }
+  }
+
+  // Groups are derived from the ranking using the snake seeding algorithm above.
   const [{ playersA, playersB }, setGroups] = useState(() => {
-    const A = ranking.slice(0, groupACount).map((p, i) => ({ ...p, rank: i + 1 }))
-    const B = ranking.slice(groupACount).map((p, i) => ({ ...p, rank: groupACount + i + 1 }))
+    // By default use the snake algorithm on initial load.  Subsequent seeding
+    // operations will respect the selected algorithm via applySeeding().
+    const { A, B } = splitSnake(ranking)
     return { playersA: A, playersB: B }
   })
 
@@ -271,14 +325,34 @@ export default function App() {
     })
   }
 
+  // Add a new player to the ranking.  A default name is generated and names
+  // are ensured to be unique.  After insertion the rank numbers are updated.
+  const addPlayer = () => {
+    setRanking(list => {
+      const names = list.map(p => p.name)
+      const base = 'Nový hráč'
+      let count = 1
+      let candidate = base
+      // If the base name already exists, append a number until unique
+      while (names.includes(candidate)) {
+        count++
+        candidate = `${base} ${count}`
+      }
+      const newList = [...list, { name: candidate, rank: list.length + 1 }]
+      // Update ranks sequentially
+      return newList.map((p, i) => ({ ...p, rank: i + 1 }))
+    })
+  }
+
   // Apply seeding: split the ranking into two groups and reset schedules
   // and results accordingly.
   const applySeeding = () => {
-    const A = ranking.slice(0, groupACount).map((p, i) => ({ ...p, rank: i + 1 }))
-    const B = ranking.slice(groupACount).map((p, i) => ({ ...p, rank: groupACount + i + 1 }))
+    // Compute new groups using the selected seeding algorithm
+    const { A, B } = splitGroups(ranking, seedingAlgo)
     setGroups({ playersA: A, playersB: B })
     const schedA = roundRobin(A)
     const schedB = roundRobin(B)
+    // Reset all match results when reseeding
     setState({ A: emptyResults(schedA, 'A'), B: emptyResults(schedB, 'B') })
   }
 
@@ -304,9 +378,10 @@ export default function App() {
             {/* Header with logo and actions */}
             <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
-                {/* Use a relative path that is prefixed with import.meta.env.BASE_URL.  The logo file is placed in the public folder as logo.jpeg so it is copied to the root of the built site. */}
-                <img src={`${import.meta.env.BASE_URL}logo.jpeg`} alt="Logo" className="h-12 w-12 object-contain" />
-                <h1 className="text-2xl md:text-3xl font-bold">Max Open – turnajová microsite</h1>
+                {/* Use the imported logo asset.  Vite will replace this with the correct hashed URL. */}
+                <img src={logo} alt="Logo" className="h-12 w-12 object-contain" />
+                {/* Remove the word "turnajová" from the title per user request */}
+                <h1 className="text-2xl md:text-3xl font-bold">Max Open – microsite</h1>
               </div>
           <div className="flex flex-wrap items-center gap-3">
             {/* Reset button is disabled when the user is not authenticated */}
@@ -322,75 +397,92 @@ export default function App() {
           </div>
         </header>
 
-        {/* Ranking section: list of players.  Editing (rename, reorder, delete) is
-            only available when the user has entered the password and
-            authenticated.  Otherwise the list is read‑only. */}
-        <div className="card">
-          <h2 className="text-xl font-semibold mb-2">
-            Seřazení hráčů
-            {!auth && (
-              <span className="text-sm font-normal text-gray-500"> (odemkněte pro úpravy)</span>
-            )}
-          </h2>
-          <ul>
-            {!auth
-              ? ranking.map((p, idx) => (
-                <li
-                  key={p.name}
-                  className="bg-white rounded-2xl p-2 mb-1 shadow flex items-center gap-2"
-                >
-                  <span className="w-6 text-right text-sm">{idx + 1}.</span>
-                  <span className="flex-1 px-2 text-sm">{p.name}</span>
-                </li>
-              ))
-              : ranking.map((p, idx) => (
-                <li
-                  key={p.name}
-                  className="bg-white rounded-2xl p-2 mb-1 shadow flex items-center gap-2"
-                >
-                  {/* Index */}
-                  <span className="w-6 text-right text-sm">{idx + 1}.</span>
-                  {/* Name input */}
-                  <input
-                    type="text"
-                    value={p.name}
-                    onChange={(e) => renamePlayer(idx, e.target.value)}
-                    className="flex-1 input py-1 px-2 text-sm"
-                  />
-                    {/* Controls for reordering and deleting */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        className="btn px-2 py-1 text-sm"
-                        onClick={() => moveUp(idx)}
-                        disabled={idx === 0}
-                        title="Posun nahoru"
-                      >▲</button>
-                      <button
-                        className="btn px-2 py-1 text-sm"
-                        onClick={() => moveDown(idx)}
-                        disabled={idx === ranking.length - 1}
-                        title="Posun dolů"
-                      >▼</button>
-                      <button
-                        className="btn px-2 py-1 text-sm text-red-600"
-                        onClick={() => deletePlayer(idx)}
-                        title="Odstranit hráče"
-                      >×</button>
-                    </div>
-                </li>
-              ))}
-          </ul>
-          <button className="btn mt-2" onClick={applySeeding}>Použít nasazení</button>
-        </div>
+        {/* The ranking editor and seeding controls are moved to a dedicated "Nasazení" tab below */}
 
-        {/* Tabs for schedule, standings and playoff */}
+        {/* Tabs for seeding, schedule, standings and playoff */}
         <Tabs
           tabs={[
+            { id: 'nasazeni', label: 'Nasazení' },
             { id: 'rozpis', label: 'Rozpis' },
             { id: 'tabulky', label: 'Tabulky' },
             { id: 'playoff', label: 'Playoff' },
           ]}
         >
+          {/* Nasazení view: ranking editor and seeding configuration */}
+          <div data-tab="nasazeni" className="space-y-4">
+            <div className="card">
+              <h2 className="text-xl font-semibold mb-2">Nasazení do skupin</h2>
+              <p className="text-sm text-gray-600 mb-3">
+                Seřaďte hráče podle aktuální výkonnosti a poté klikněte na&nbsp;
+                „Použít nasazení“. Skupiny lze vytvořit dvěma způsoby:&nbsp;
+                <strong>had</strong> – párové procházení seznamem střídavě A/B,B/A,
+                nebo&nbsp;<strong>průměr rankingu</strong> – první polovina hráčů jde do skupiny&nbsp;A
+                a zbytek do skupiny&nbsp;B. Níže můžete zvolit algoritmus.
+              </p>
+              <div className="flex items-center gap-2 mb-3">
+                <label className="text-sm">Algoritmus:</label>
+                <select
+                  value={seedingAlgo}
+                  onChange={(e) => setSeedingAlgo(e.target.value)}
+                  className="input w-40"
+                >
+                  <option value="had">had</option>
+                  <option value="prumer">průměr rankingu</option>
+                </select>
+              </div>
+              <ul>
+                {!auth
+                  ? ranking.map((p, idx) => (
+                    <li
+                      key={p.name}
+                      className="bg-white rounded-2xl p-2 mb-1 shadow flex items-center gap-2"
+                    >
+                      <span className="w-6 text-right text-sm">{idx + 1}.</span>
+                      <span className="flex-1 px-2 text-sm">{p.name}</span>
+                    </li>
+                  ))
+                  : ranking.map((p, idx) => (
+                    <li
+                      key={p.name}
+                      className="bg-white rounded-2xl p-2 mb-1 shadow flex items-center gap-2"
+                    >
+                      <span className="w-6 text-right text-sm">{idx + 1}.</span>
+                      <input
+                        type="text"
+                        value={p.name}
+                        onChange={(e) => renamePlayer(idx, e.target.value)}
+                        className="flex-1 input py-1 px-2 text-sm"
+                      />
+                      <div className="flex items-center gap-1">
+                        <button
+                          className="btn px-2 py-1 text-sm"
+                          onClick={() => moveUp(idx)}
+                          disabled={idx === 0}
+                          title="Posun nahoru"
+                        >▲</button>
+                        <button
+                          className="btn px-2 py-1 text-sm"
+                          onClick={() => moveDown(idx)}
+                          disabled={idx === ranking.length - 1}
+                          title="Posun dolů"
+                        >▼</button>
+                        <button
+                          className="btn px-2 py-1 text-sm text-red-600"
+                          onClick={() => deletePlayer(idx)}
+                          title="Odstranit hráče"
+                        >×</button>
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+              {/* Add player button appears only when unlocked */}
+              {auth && (
+                <button className="btn mt-2 mr-2" onClick={addPlayer}>Přidat hráče</button>
+              )}
+              <button className="btn mt-2" onClick={applySeeding}>Použít nasazení</button>
+            </div>
+          </div>
+
           {/* Schedule view */}
           <div data-tab="rozpis" className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
