@@ -31,6 +31,7 @@ const initialParticipants = [
   { name: 'Ondřej Holboj', rank: 9 },
   { name: 'Venca Fál', rank: 10 },
   { name: 'Franta Fál', rank: 11 },
+  // Corrected spelling of Vláďa Tvrdek
   { name: 'Vláďa Tvrdek', rank: 12 },
   { name: 'Martin Klanica', rank: 13 },
 ]
@@ -166,6 +167,21 @@ export default function App() {
   const standingsA = useMemo(() => calcStandings(playersA, state.A), [playersA, state.A])
   const standingsB = useMemo(() => calcStandings(playersB, state.B), [playersB, state.B])
 
+  // Password protection for editing match results.  When `auth` is false, score
+  // inputs and clear buttons are disabled.  The `password` state holds the
+  // current user input; when it matches the hard-coded secret the user is
+  // authenticated and can edit results.
+  const [password, setPassword] = useState('')
+  const [auth, setAuth] = useState(false)
+  const handleAuth = () => {
+    if (password === 'tottowolf') {
+      setAuth(true)
+      setPassword('')
+    } else {
+      alert('Nesprávné heslo!')
+    }
+  }
+
   // Update a single score field for a match.  We store scores as strings
   // because empty values represent an unset score.
   const updateScore = (group, key, field, value) => {
@@ -273,6 +289,14 @@ export default function App() {
               Načíst data
             </label>
             <button className="btn" onClick={resetAll}>Reset výsledků</button>
+            {!auth ? (
+              <span className="flex items-center gap-2">
+                <input type="password" className="input w-32" placeholder="Heslo" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <button className="btn" onClick={handleAuth}>Odemknout</button>
+              </span>
+            ) : (
+              <button className="btn" onClick={() => setAuth(false)}>Zamknout úpravy</button>
+            )}
           </div>
         </header>
 
@@ -314,21 +338,23 @@ export default function App() {
                   <div key={`A-${round}`} className="mb-3">
                     <div className="text-sm font-semibold text-gray-600 mb-1">Kolo {round}</div>
                     <div className="grid grid-cols-1 gap-2">
-                      {matches.map(([a, b]) => {
+                      {matches.map(([a, b], idxMatch) => {
                         const key = idFor('A', a, b)
                         const rec = state.A[key]
+                        const court = (idxMatch % 3) + 1
                         return (
-                          <div key={key} className="grid grid-cols-12 items-center gap-2 bg-white rounded-2xl p-2 shadow">
-                            <div className="col-span-5 text-right pr-2">{a}</div>
-                            <div className="col-span-2 text-center">
-                              <input inputMode="numeric" pattern="[0-9]*" className="input text-center" placeholder="0" value={rec.ag} onChange={(e) => updateScore('A', key, 'ag', e.target.value)} />
+                          <div key={key} className='grid grid-cols-13 items-center gap-2 bg-white rounded-2xl p-2 shadow'>
+                            <div className='col-span-1 text-center text-xs font-semibold text-gray-600'>Kurt {court}</div>
+                            <div className='col-span-4 text-right pr-2'>{a}</div>
+                            <div className='col-span-2 text-center'>
+                              <input inputMode='numeric' pattern='[0-9]*' className='input text-center' placeholder='0' value={rec.ag} onChange={(e) => updateScore('A', key, 'ag', e.target.value)} disabled={!auth} />
                             </div>
-                            <div className="col-span-2 text-center">
-                              <input inputMode="numeric" pattern="[0-9]*" className="input text-center" placeholder="0" value={rec.bg} onChange={(e) => updateScore('A', key, 'bg', e.target.value)} />
+                            <div className='col-span-2 text-center'>
+                              <input inputMode='numeric' pattern='[0-9]*' className='input text-center' placeholder='0' value={rec.bg} onChange={(e) => updateScore('A', key, 'bg', e.target.value)} disabled={!auth} />
                             </div>
-                            <div className="col-span-3 pl-2 flex justify-between items-center">
+                            <div className='col-span-4 pl-2 flex justify-between items-center'>
                               <span>{b}</span>
-                              <button onClick={() => clearMatch('A', key)} className="text-red-500 hover:text-red-700 ml-2">×</button>
+                              <button onClick={() => clearMatch('A', key)} className='text-red-500 hover:text-red-700 ml-2' disabled={!auth}>×</button>
                             </div>
                           </div>
                         )
@@ -345,21 +371,23 @@ export default function App() {
                   <div key={`B-${round}`} className="mb-3">
                     <div className="text-sm font-semibold text-gray-600 mb-1">Kolo {round}</div>
                     <div className="grid grid-cols-1 gap-2">
-                      {matches.map(([a, b]) => {
+                      {matches.map(([a, b], idxMatch) => {
                         const key = idFor('B', a, b)
                         const rec = state.B[key]
+                        const court = (idxMatch % 3) + 1
                         return (
-                          <div key={key} className="grid grid-cols-12 items-center gap-2 bg-white rounded-2xl p-2 shadow">
-                            <div className="col-span-5 text-right pr-2">{a}</div>
-                            <div className="col-span-2 text-center">
-                              <input inputMode="numeric" pattern="[0-9]*" className="input text-center" placeholder="0" value={rec.ag} onChange={(e) => updateScore('B', key, 'ag', e.target.value)} />
+                          <div key={key} className='grid grid-cols-13 items-center gap-2 bg-white rounded-2xl p-2 shadow'>
+                            <div className='col-span-1 text-center text-xs font-semibold text-gray-600'>Kurt {court}</div>
+                            <div className='col-span-4 text-right pr-2'>{a}</div>
+                            <div className='col-span-2 text-center'>
+                              <input inputMode='numeric' pattern='[0-9]*' className='input text-center' placeholder='0' value={rec.ag} onChange={(e) => updateScore('B', key, 'ag', e.target.value)} disabled={!auth} />
                             </div>
-                            <div className="col-span-2 text-center">
-                              <input inputMode="numeric" pattern="[0-9]*" className="input text-center" placeholder="0" value={rec.bg} onChange={(e) => updateScore('B', key, 'bg', e.target.value)} />
+                            <div className='col-span-2 text-center'>
+                              <input inputMode='numeric' pattern='[0-9]*' className='input text-center' placeholder='0' value={rec.bg} onChange={(e) => updateScore('B', key, 'bg', e.target.value)} disabled={!auth} />
                             </div>
-                            <div className="col-span-3 pl-2 flex justify-between items-center">
+                            <div className='col-span-4 pl-2 flex justify-between items-center'>
                               <span>{b}</span>
-                              <button onClick={() => clearMatch('B', key)} className="text-red-500 hover:text-red-700 ml-2">×</button>
+                              <button onClick={() => clearMatch('B', key)} className='text-red-500 hover:text-red-700 ml-2' disabled={!auth}>×</button>
                             </div>
                           </div>
                         )
@@ -369,7 +397,7 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <div className="text-xs text-gray-500">Ve skupinách se hraje na 4 vítězné gamy. Zadej skóre jako čísla (např. 4–2). Kliknutím na × vedle zápasu vymažete pouze tento výsledek.</div>
+            <div className="text-xs text-gray-500">Ve skupinách se hraje na 4 vítězné gamy. Zadej skóre jako čísla (např. 4–2). Kliknutím na × vedle zápasu vymažete pouze tento výsledek. Zápasy jsou rozděleny na tři kurty (1–3).</div>
           </div>
 
           {/* Standings view */}
