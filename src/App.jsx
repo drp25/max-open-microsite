@@ -318,51 +318,63 @@ export default function App() {
           </div>
         </header>
 
-        {/* Ranking section: editable list and seeding button.  On mobile the
-            ordering can be changed with arrow buttons and names can be
-            modified directly. */}
+        {/* Ranking section: list of players.  Editing (rename, reorder, delete) is
+            only available when the user has entered the password and
+            authenticated.  Otherwise the list is read‑only. */}
         <div className="card">
           <h2 className="text-xl font-semibold mb-2">
-            Seřazení hráčů&nbsp;
-            <span className="text-sm font-normal text-gray-500">(uprav jméno, šipkami posuň pořadí, × odebere hráče)</span>
+            Seřazení hráčů
+            {!auth && (
+              <span className="text-sm font-normal text-gray-500"> (odemkněte pro úpravy)</span>
+            )}
           </h2>
           <ul>
-            {ranking.map((p, idx) => (
-              <li
-                key={p.name}
-                className="bg-white rounded-2xl p-2 mb-1 shadow flex items-center gap-2"
-              >
-                {/* Index */}
-                <span className="w-6 text-right text-sm">{idx + 1}.</span>
-                {/* Name input */}
-                <input
-                  type="text"
-                  value={p.name}
-                  onChange={(e) => renamePlayer(idx, e.target.value)}
-                  className="flex-1 input py-1 px-2 text-sm"
-                />
-                {/* Controls for reordering and deleting */}
-                <div className="flex items-center gap-1">
-                  <button
-                    className="btn px-2 py-1 text-sm"
-                    onClick={() => moveUp(idx)}
-                    disabled={idx === 0}
-                    title="Posun nahoru"
-                  >▲</button>
-                  <button
-                    className="btn px-2 py-1 text-sm"
-                    onClick={() => moveDown(idx)}
-                    disabled={idx === ranking.length - 1}
-                    title="Posun dolů"
-                  >▼</button>
-                  <button
-                    className="btn px-2 py-1 text-sm text-red-600"
-                    onClick={() => deletePlayer(idx)}
-                    title="Odstranit hráče"
-                  >×</button>
-                </div>
-              </li>
-            ))}
+            {!auth
+              ? ranking.map((p, idx) => (
+                <li
+                  key={p.name}
+                  className="bg-white rounded-2xl p-2 mb-1 shadow flex items-center gap-2"
+                >
+                  <span className="w-6 text-right text-sm">{idx + 1}.</span>
+                  <span className="flex-1 px-2 text-sm">{p.name}</span>
+                </li>
+              ))
+              : ranking.map((p, idx) => (
+                <li
+                  key={p.name}
+                  className="bg-white rounded-2xl p-2 mb-1 shadow flex items-center gap-2"
+                >
+                  {/* Index */}
+                  <span className="w-6 text-right text-sm">{idx + 1}.</span>
+                  {/* Name input */}
+                  <input
+                    type="text"
+                    value={p.name}
+                    onChange={(e) => renamePlayer(idx, e.target.value)}
+                    className="flex-1 input py-1 px-2 text-sm"
+                  />
+                    {/* Controls for reordering and deleting */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        className="btn px-2 py-1 text-sm"
+                        onClick={() => moveUp(idx)}
+                        disabled={idx === 0}
+                        title="Posun nahoru"
+                      >▲</button>
+                      <button
+                        className="btn px-2 py-1 text-sm"
+                        onClick={() => moveDown(idx)}
+                        disabled={idx === ranking.length - 1}
+                        title="Posun dolů"
+                      >▼</button>
+                      <button
+                        className="btn px-2 py-1 text-sm text-red-600"
+                        onClick={() => deletePlayer(idx)}
+                        title="Odstranit hráče"
+                      >×</button>
+                    </div>
+                </li>
+              ))}
           </ul>
           <button className="btn mt-2" onClick={applySeeding}>Použít nasazení</button>
         </div>
@@ -390,18 +402,19 @@ export default function App() {
                         const rec = state.A[key]
                         const court = (idxMatch % 3) + 1
                         return (
-                          <div key={key} className='grid grid-cols-7 md:grid-cols-13 items-center gap-2 bg-white rounded-2xl p-2 shadow'>
+                          <div key={key} className='grid grid-cols-9 md:grid-cols-13 items-center gap-2 bg-white rounded-2xl p-2 shadow'>
                             <div className='col-span-1 text-center text-xs font-semibold text-gray-600'>Kurt {court}</div>
-                            <div className='col-span-2 md:col-span-4 text-right pr-2'>{a}</div>
+                            {/* Player A name cell: allow wrapping on mobile by adding whitespace-normal and break-words */}
+                            <div className='col-span-3 md:col-span-4 text-left pl-2 whitespace-normal break-words'>{a}</div>
                             <div className='col-span-1 md:col-span-2 text-center'>
                               <input inputMode='numeric' pattern='[0-9]*' className='input text-center' placeholder='0' value={rec.ag} onChange={(e) => updateScore('A', key, 'ag', e.target.value)} disabled={!auth} />
                             </div>
                             <div className='col-span-1 md:col-span-2 text-center'>
                               <input inputMode='numeric' pattern='[0-9]*' className='input text-center' placeholder='0' value={rec.bg} onChange={(e) => updateScore('A', key, 'bg', e.target.value)} disabled={!auth} />
                             </div>
-                            <div className='col-span-2 md:col-span-4 pl-2 flex justify-between items-center'>
-                              <span className='truncate'>{b}</span>
-                              <button onClick={() => clearMatch('A', key)} className='text-red-500 hover:text-red-700 ml-2' disabled={!auth}>×</button>
+                            <div className='col-span-3 md:col-span-4 pl-2 flex items-center justify-between'>
+                              <span className='whitespace-normal break-words flex-1'>{b}</span>
+                              <button onClick={() => clearMatch('A', key)} className='text-red-500 hover:text-red-700 ml-2 flex-shrink-0' disabled={!auth}>×</button>
                             </div>
                           </div>
                         )
@@ -423,18 +436,19 @@ export default function App() {
                         const rec = state.B[key]
                         const court = (idxMatch % 3) + 1
                         return (
-                          <div key={key} className='grid grid-cols-7 md:grid-cols-13 items-center gap-2 bg-white rounded-2xl p-2 shadow'>
+                          <div key={key} className='grid grid-cols-9 md:grid-cols-13 items-center gap-2 bg-white rounded-2xl p-2 shadow'>
                             <div className='col-span-1 text-center text-xs font-semibold text-gray-600'>Kurt {court}</div>
-                            <div className='col-span-2 md:col-span-4 text-right pr-2'>{a}</div>
+                            {/* Player A name cell: allow wrapping on mobile by adding whitespace-normal and break-words */}
+                            <div className='col-span-3 md:col-span-4 text-left pl-2 whitespace-normal break-words'>{a}</div>
                             <div className='col-span-1 md:col-span-2 text-center'>
                               <input inputMode='numeric' pattern='[0-9]*' className='input text-center' placeholder='0' value={rec.ag} onChange={(e) => updateScore('B', key, 'ag', e.target.value)} disabled={!auth} />
                             </div>
                             <div className='col-span-1 md:col-span-2 text-center'>
                               <input inputMode='numeric' pattern='[0-9]*' className='input text-center' placeholder='0' value={rec.bg} onChange={(e) => updateScore('B', key, 'bg', e.target.value)} disabled={!auth} />
                             </div>
-                            <div className='col-span-2 md:col-span-4 pl-2 flex justify-between items-center'>
-                              <span className='truncate'>{b}</span>
-                              <button onClick={() => clearMatch('B', key)} className='text-red-500 hover:text-red-700 ml-2' disabled={!auth}>×</button>
+                            <div className='col-span-3 md:col-span-4 pl-2 flex items-center justify-between'>
+                              <span className='whitespace-normal break-words flex-1'>{b}</span>
+                              <button onClick={() => clearMatch('B', key)} className='text-red-500 hover:text-red-700 ml-2 flex-shrink-0' disabled={!auth}>×</button>
                             </div>
                           </div>
                         )
