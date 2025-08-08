@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import logo from './logo.jpeg'
+// The tournament logo is stored in the public directory.  Use the base URL
+// so that the asset resolves correctly on GitHub Pages where the site
+// is deployed under a sub-path.  See vite.config.js for the base path.
+
 
 /*
  * This component implements the Max Open microsite with a few new features:
@@ -295,15 +298,16 @@ export default function App() {
     { label: 'ČF4', a: top4B[1] || '2B', b: top4A[2] || '3A' },
   ]
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="mx-auto max-w-6xl space-y-6">
-        {/* Header with logo and actions */}
-        <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <img src={logo} alt="Logo" className="h-12 w-12 object-contain" />
-            <h1 className="text-2xl md:text-3xl font-bold">Max Open – turnajová microsite</h1>
-          </div>
+    return (
+        <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+          <div className="mx-auto max-w-6xl space-y-6">
+            {/* Header with logo and actions */}
+            <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-3">
+                {/* Use a relative path that is prefixed with import.meta.env.BASE_URL.  The logo file is placed in the public folder as logo.jpeg so it is copied to the root of the built site. */}
+                <img src={`${import.meta.env.BASE_URL}logo.jpeg`} alt="Logo" className="h-12 w-12 object-contain" />
+                <h1 className="text-2xl md:text-3xl font-bold">Max Open – turnajová microsite</h1>
+              </div>
           <div className="flex flex-wrap items-center gap-3">
             {/* Reset button is disabled when the user is not authenticated */}
             <button className="btn" onClick={resetAll} disabled={!auth}>Reset výsledků</button>
