@@ -194,8 +194,14 @@ export default function App() {
     }))
   }
 
-  // Reset all results to blank after confirmation.
+  // Reset all results to blank after confirmation.  Only allowed when
+  // authenticated via the password.  Attempting to reset without
+  // authentication will show an alert.
   const resetAll = () => {
+    if (!auth) {
+      alert('Pro reset výsledků musíte zadat správné heslo a odemknout úpravy.')
+      return
+    }
     if (!window.confirm('Smazat všechny výsledky?')) return
     setState({ A: emptyResults(scheduleA, 'A'), B: emptyResults(scheduleB, 'B') })
   }
@@ -226,6 +232,42 @@ export default function App() {
     setDraggedIndex(null)
   }
 
+  // Ranking editing helpers.  On mobile devices drag and drop is not
+  // available, so provide explicit controls to move players up or down,
+  // rename a player or remove them entirely.  After any change we recompute
+  // rank numbers so that `rank` reflects the new ordering (1 = highest seed).
+  const renamePlayer = (idx, newName) => {
+    setRanking(list => {
+      const out = [...list]
+      out[idx] = { ...out[idx], name: newName }
+      return out
+    })
+  }
+  const deletePlayer = (idx) => {
+    if (!window.confirm('Opravdu odstranit hráče?')) return
+    setRanking(list => {
+      const out = [...list]
+      out.splice(idx, 1)
+      return out.map((p, i) => ({ ...p, rank: i + 1 }))
+    })
+  }
+  const moveUp = (idx) => {
+    if (idx <= 0) return
+    setRanking(list => {
+      const out = reorder(list, idx, idx - 1)
+      out.forEach((p, i) => { p.rank = i + 1 })
+      return out
+    })
+  }
+  const moveDown = (idx) => {
+    setRanking(list => {
+      if (idx >= list.length - 1) return list
+      const out = reorder(list, idx, idx + 1)
+      out.forEach((p, i) => { p.rank = i + 1 })
+      return out
+    })
+  }
+
   // Apply seeding: split the ranking into two groups and reset schedules
   // and results accordingly.
   const applySeeding = () => {
@@ -237,31 +279,11 @@ export default function App() {
     setState({ A: emptyResults(schedA, 'A'), B: emptyResults(schedB, 'B') })
   }
 
-  // Export and import match data.
-  const onExport = () => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = 'tenis_microsite_data.json'
-    a.click()
-  }
-  const onImport = (e) => {
-    const f = e.target.files?.[0]; if (!f) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(reader.result)
-        if (parsed.A && parsed.B) {
-          setState(parsed)
-        } else {
-          alert('Soubor nemá požadovaný formát.')
-        }
-      } catch (err) {
-        alert('Soubor nelze načíst.')
-      }
-    }
-    reader.readAsText(f)
-  }
+  /*
+   * Export and import functions have been removed.  Previously, these allowed
+   * users to download or upload tournament data manually.  Persistence is
+   * now handled automatically via localStorage.
+   */
 
   // Compose bracket for playoff (top 4 from each group).
   const top4A = standingsA.slice(0, 4).map(r => r.name)
@@ -283,12 +305,8 @@ export default function App() {
             <h1 className="text-2xl md:text-3xl font-bold">Max Open – turnajová microsite</h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button className="btn" onClick={onExport}>Export dat</button>
-            <label className="btn cursor-pointer">
-              <input type="file" accept="application/json" className="hidden" onChange={onImport} />
-              Načíst data
-            </label>
-            <button className="btn" onClick={resetAll}>Reset výsledků</button>
+            {/* Reset button is disabled when the user is not authenticated */}
+            <button className="btn" onClick={resetAll} disabled={!auth}>Reset výsledků</button>
             {!auth ? (
               <span className="flex items-center gap-2">
                 <input type="password" className="input w-32" placeholder="Heslo" value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -300,20 +318,49 @@ export default function App() {
           </div>
         </header>
 
-        {/* Ranking section: draggable list and seeding button */}
+        {/* Ranking section: editable list and seeding button.  On mobile the
+            ordering can be changed with arrow buttons and names can be
+            modified directly. */}
         <div className="card">
-          <h2 className="text-xl font-semibold mb-2">Seřazení hráčů (přetáhněte myší)</h2>
+          <h2 className="text-xl font-semibold mb-2">
+            Seřazení hráčů&nbsp;
+            <span className="text-sm font-normal text-gray-500">(uprav jméno, šipkami posuň pořadí, × odebere hráče)</span>
+          </h2>
           <ul>
             {ranking.map((p, idx) => (
               <li
                 key={p.name}
-                draggable
-                onDragStart={() => handleDragStart(idx)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDrop(idx)}
-                className="bg-white rounded-2xl p-2 mb-1 shadow flex justify-between items-center cursor-move"
+                className="bg-white rounded-2xl p-2 mb-1 shadow flex items-center gap-2"
               >
-                <span>{idx + 1}. {p.name}</span>
+                {/* Index */}
+                <span className="w-6 text-right text-sm">{idx + 1}.</span>
+                {/* Name input */}
+                <input
+                  type="text"
+                  value={p.name}
+                  onChange={(e) => renamePlayer(idx, e.target.value)}
+                  className="flex-1 input py-1 px-2 text-sm"
+                />
+                {/* Controls for reordering and deleting */}
+                <div className="flex items-center gap-1">
+                  <button
+                    className="btn px-2 py-1 text-sm"
+                    onClick={() => moveUp(idx)}
+                    disabled={idx === 0}
+                    title="Posun nahoru"
+                  >▲</button>
+                  <button
+                    className="btn px-2 py-1 text-sm"
+                    onClick={() => moveDown(idx)}
+                    disabled={idx === ranking.length - 1}
+                    title="Posun dolů"
+                  >▼</button>
+                  <button
+                    className="btn px-2 py-1 text-sm text-red-600"
+                    onClick={() => deletePlayer(idx)}
+                    title="Odstranit hráče"
+                  >×</button>
+                </div>
               </li>
             ))}
           </ul>
@@ -343,17 +390,17 @@ export default function App() {
                         const rec = state.A[key]
                         const court = (idxMatch % 3) + 1
                         return (
-                          <div key={key} className='grid grid-cols-13 items-center gap-2 bg-white rounded-2xl p-2 shadow'>
+                          <div key={key} className='grid grid-cols-7 md:grid-cols-13 items-center gap-2 bg-white rounded-2xl p-2 shadow'>
                             <div className='col-span-1 text-center text-xs font-semibold text-gray-600'>Kurt {court}</div>
-                            <div className='col-span-4 text-right pr-2'>{a}</div>
-                            <div className='col-span-2 text-center'>
+                            <div className='col-span-2 md:col-span-4 text-right pr-2'>{a}</div>
+                            <div className='col-span-1 md:col-span-2 text-center'>
                               <input inputMode='numeric' pattern='[0-9]*' className='input text-center' placeholder='0' value={rec.ag} onChange={(e) => updateScore('A', key, 'ag', e.target.value)} disabled={!auth} />
                             </div>
-                            <div className='col-span-2 text-center'>
+                            <div className='col-span-1 md:col-span-2 text-center'>
                               <input inputMode='numeric' pattern='[0-9]*' className='input text-center' placeholder='0' value={rec.bg} onChange={(e) => updateScore('A', key, 'bg', e.target.value)} disabled={!auth} />
                             </div>
-                            <div className='col-span-4 pl-2 flex justify-between items-center'>
-                              <span>{b}</span>
+                            <div className='col-span-2 md:col-span-4 pl-2 flex justify-between items-center'>
+                              <span className='truncate'>{b}</span>
                               <button onClick={() => clearMatch('A', key)} className='text-red-500 hover:text-red-700 ml-2' disabled={!auth}>×</button>
                             </div>
                           </div>
@@ -376,17 +423,17 @@ export default function App() {
                         const rec = state.B[key]
                         const court = (idxMatch % 3) + 1
                         return (
-                          <div key={key} className='grid grid-cols-13 items-center gap-2 bg-white rounded-2xl p-2 shadow'>
+                          <div key={key} className='grid grid-cols-7 md:grid-cols-13 items-center gap-2 bg-white rounded-2xl p-2 shadow'>
                             <div className='col-span-1 text-center text-xs font-semibold text-gray-600'>Kurt {court}</div>
-                            <div className='col-span-4 text-right pr-2'>{a}</div>
-                            <div className='col-span-2 text-center'>
+                            <div className='col-span-2 md:col-span-4 text-right pr-2'>{a}</div>
+                            <div className='col-span-1 md:col-span-2 text-center'>
                               <input inputMode='numeric' pattern='[0-9]*' className='input text-center' placeholder='0' value={rec.ag} onChange={(e) => updateScore('B', key, 'ag', e.target.value)} disabled={!auth} />
                             </div>
-                            <div className='col-span-2 text-center'>
+                            <div className='col-span-1 md:col-span-2 text-center'>
                               <input inputMode='numeric' pattern='[0-9]*' className='input text-center' placeholder='0' value={rec.bg} onChange={(e) => updateScore('B', key, 'bg', e.target.value)} disabled={!auth} />
                             </div>
-                            <div className='col-span-4 pl-2 flex justify-between items-center'>
-                              <span>{b}</span>
+                            <div className='col-span-2 md:col-span-4 pl-2 flex justify-between items-center'>
+                              <span className='truncate'>{b}</span>
                               <button onClick={() => clearMatch('B', key)} className='text-red-500 hover:text-red-700 ml-2' disabled={!auth}>×</button>
                             </div>
                           </div>
