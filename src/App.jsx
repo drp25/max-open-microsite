@@ -89,7 +89,10 @@ function emptyResults(schedule, group) {
 // data does not exist or cannot be parsed we return null.
 function loadState() {
   try {
-    const raw = localStorage.getItem('tenis-microsite-state-v2')
+    // Use a new storage key (v3) to ensure any incompatible saved data from
+    // previous versions does not cause runtime errors.  If no state exists
+    // under this key, the site will initialise fresh results.
+    const raw = localStorage.getItem('tenis-microsite-state-v3')
     if (!raw) return null
     return JSON.parse(raw)
   } catch (e) {
@@ -97,7 +100,7 @@ function loadState() {
   }
 }
 function saveState(s) {
-  localStorage.setItem('tenis-microsite-state-v2', JSON.stringify(s))
+  localStorage.setItem('tenis-microsite-state-v3', JSON.stringify(s))
 }
 
 // Compute standings given the list of players in a group and the recorded
@@ -111,6 +114,11 @@ function calcStandings(players, resultsForGroup) {
     if (!m) return
     const { a, b, ag, bg } = m
     const A = index[a], B = index[b]
+    // If either player is not part of the current standings table (e.g. leftover
+    // results from a previous seeding), skip this match entirely.  Without
+    // this guard an undefined index would cause a runtime error when
+    // accessing table[A] or table[B].
+    if (A === undefined || B === undefined) return
     const agn = Number(ag), bgn = Number(bg)
     if (Number.isFinite(agn) && Number.isFinite(bgn) && ag !== '' && bg !== '') {
       table[A].GF += agn; table[A].GA += bgn
