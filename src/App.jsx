@@ -274,20 +274,6 @@ export default function App() {
     }))
   }
 
-  // Drag and drop handlers for ranking list.
-  const [draggedIndex, setDraggedIndex] = useState(null)
-  const handleDragStart = (idx) => setDraggedIndex(idx)
-  const handleDrop = (idx) => {
-    if (draggedIndex === null || draggedIndex === idx) {
-      setDraggedIndex(null)
-      return
-    }
-    const reordered = reorder(ranking, draggedIndex, idx)
-    // update rank numbers after reordering
-    reordered.forEach((p, i) => { p.rank = i + 1 })
-    setRanking(reordered)
-    setDraggedIndex(null)
-  }
 
   // Ranking editing helpers.  On mobile devices drag and drop is not
   // available, so provide explicit controls to move players up or down,
@@ -431,54 +417,44 @@ export default function App() {
                 </select>
               </div>
               <ul>
-                {!auth
-                  ? ranking.map((p, idx) => (
-                    <li
-                      key={p.name}
-                      className="bg-white rounded-2xl p-2 mb-1 shadow flex items-center gap-2"
-                    >
-                      <span className="w-6 text-right text-sm">{idx + 1}.</span>
-                      <span className="flex-1 px-2 text-sm">{p.name}</span>
-                    </li>
-                  ))
-                  : ranking.map((p, idx) => (
-                    <li
-                      key={p.name}
-                      className="bg-white rounded-2xl p-2 mb-1 shadow flex items-center gap-2"
-                    >
-                      <span className="w-6 text-right text-sm">{idx + 1}.</span>
-                      <input
-                        type="text"
-                        value={p.name}
-                        onChange={(e) => renamePlayer(idx, e.target.value)}
-                        className="flex-1 input py-1 px-2 text-sm"
-                      />
-                      <div className="flex items-center gap-1">
-                        <button
-                          className="btn px-2 py-1 text-sm"
-                          onClick={() => moveUp(idx)}
-                          disabled={idx === 0}
-                          title="Posun nahoru"
-                        >▲</button>
-                        <button
-                          className="btn px-2 py-1 text-sm"
-                          onClick={() => moveDown(idx)}
-                          disabled={idx === ranking.length - 1}
-                          title="Posun dolů"
-                        >▼</button>
-                        <button
-                          className="btn px-2 py-1 text-sm text-red-600"
-                          onClick={() => deletePlayer(idx)}
-                          title="Odstranit hráče"
-                        >×</button>
-                      </div>
-                    </li>
-                  ))}
+                {ranking.map((p, idx) => (
+                  <li
+                    key={p.name}
+                    className="bg-white rounded-2xl p-2 mb-1 shadow flex items-center gap-2"
+                  >
+                    <span className="w-6 text-right text-sm">{idx + 1}.</span>
+                    <input
+                      type="text"
+                      value={p.name}
+                      onChange={(e) => renamePlayer(idx, e.target.value)}
+                      className="flex-1 input py-1 px-2 text-sm"
+                      disabled={!auth}
+                    />
+                    <div className="flex items-center gap-1">
+                      <button
+                        className="btn px-2 py-1 text-sm"
+                        onClick={() => moveUp(idx)}
+                        disabled={!auth || idx === 0}
+                        title="Posun nahoru"
+                      >▲</button>
+                      <button
+                        className="btn px-2 py-1 text-sm"
+                        onClick={() => moveDown(idx)}
+                        disabled={!auth || idx === ranking.length - 1}
+                        title="Posun dolů"
+                      >▼</button>
+                      <button
+                        className="btn px-2 py-1 text-sm text-red-600"
+                        onClick={() => deletePlayer(idx)}
+                        disabled={!auth}
+                        title="Odstranit hráče"
+                      >×</button>
+                    </div>
+                  </li>
+                ))}
               </ul>
-              {/* Add player button appears only when unlocked */}
-              {auth && (
-                <button className="btn mt-2 mr-2" onClick={addPlayer}>Přidat hráče</button>
-              )}
+              {/* Add player button: disabled when not authenticated */}
+              <button className="btn mt-2 mr-2" onClick={addPlayer} disabled={!auth}>Přidat hráče</button>
               <button className="btn mt-2" onClick={applySeeding}>Použít nasazení</button>
             </div>
           </div>
